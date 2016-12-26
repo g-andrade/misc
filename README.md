@@ -30,5 +30,3 @@ Limitations:
 # Sync:
 ./imap2dir.py sync imap.gmail.com user@gmail.com '[Gmail]/All Mail' ~/gmail_backup/
 ```
-
-For uploading maildir-style directories to IMAP instead, see [g-andrade/maildir2imap](https://github.com/g-andrade/maildir2imap).
