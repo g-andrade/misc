@@ -1,7 +1,7 @@
 # imap2dir
 Download messages contained in an IMAP folder to a local directory; `imap2dir` will:
 
-1. Parse all local message IDs for files contained in the specified directory
+1. Parse all local message IDs from files contained in the specified directory
 2. Fetch all remote message IDs (up to 1.0e15 entries) from the IMAP folder
 3. ..and based on these try and download all (but only) the messages that are missing (from the local folder)
 
