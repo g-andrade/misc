@@ -60,3 +60,6 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# maildir2imap cache
+cached_local_message_ids.pickle
