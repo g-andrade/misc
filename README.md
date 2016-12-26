@@ -1,8 +1,8 @@
 # imap2dir
 Download messages contained in an IMAP folder to a local directory; `imap2dir` will:
 
-1. Parse all local message IDs contained in the specified directory
-2. Fetch all remote message IDs (up to 1.0e9 entries) from the IMAP folder
+1. Parse all local message IDs for files contained in the specified directory
+2. Fetch all remote message IDs (up to 1.0e15 entries) from the IMAP folder
 3. ..and based on these try and download all (but only) the messages that are missing (from the local folder)
 
 The script will also try to set local modification times to the corresponding 'date' header values. The generated filenames are based on timestamp, subject (filtered for safety) and a random suffix.
@@ -31,4 +31,4 @@ Limitations:
 ./imap2dir.py sync imap.gmail.com user@gmail.com 'password' '[Gmail]/All Mail' ~/gmail_backup/
 ```
 
-For uploading maildir-style directories to IMAP instead, see [g-andrade/maildir2imap](http://https://github.com/g-andrade/maildir2imap).
+For uploading maildir-style directories to IMAP instead, see [g-andrade/maildir2imap](https://github.com/g-andrade/maildir2imap).
