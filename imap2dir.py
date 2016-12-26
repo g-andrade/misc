@@ -2,19 +2,20 @@
 import email
 import email.Header
 import email.Utils
+import getpass
+from imaplib import IMAP4_SSL
+from multiprocessing import Pool
+import operator
 import os
+import pickle
+import random
+import signal
+import string
 import sys
 import re
 import time
-import signal
-import string
-import operator
-import pickle
-import random
 import traceback
 import unicodedata
-from imaplib import IMAP4_SSL
-from multiprocessing import Pool
 
 IMAP_FETCH_LIMIT = 10 ** 15
 MAX_IMAP_WORKERS = 5
@@ -421,10 +422,10 @@ def fetch_local_message_ids(dirname):
         worker_pool.join()
         sys.exit(-1)
 
-def run(run_type, hostname, username, password,
-        imap_folder_name, local_dirname):
+def run(run_type, hostname, username, imap_folder_name, local_dirname):
     if run_type not in ['dry', 'dry_sync', 'sync']:
         raise Exception('unknown run type: %s' % run_type)
+    password = getpass.getpass('Password for "%s@%s": ' % (username, hostname))
     local_file_per_id = fetch_local_message_ids(local_dirname)
     remote_refids = fetch_imap_message_refids(
             hostname, username, password, imap_folder_name)
@@ -450,14 +451,14 @@ def run(run_type, hostname, username, password,
 if __name__ == '__main__':
     # Dry run:
     #   ./imap2dir.py dry imap.gmail.com \
-    #       user@gmail.com 'password' '[Gmail]/All Mail' ~/email_backup/
+    #       user@gmail.com '[Gmail]/All Mail' ~/email_backup/
     #
     # Dry sync:
     #   ./imap2dir.py dry_sync imap.gmail.com \
-    #       user@gmail.com 'password' '[Gmail]/All Mail' ~/email_backup/
+    #       user@gmail.com '[Gmail]/All Mail' ~/email_backup/
     #
     # Sync:
     #   ./imap2dir.py sync imap.gmail.com \
-    #       user@gmail.com 'password' '[Gmail]/All Mail' ~/email_backup/
+    #       user@gmail.com '[Gmail]/All Mail' ~/email_backup/
     #
-    run(*(sys.argv[1:7]))
+    run(*(sys.argv[1:6]))

@@ -22,13 +22,13 @@ Limitations:
 
 ```shell
 # Dry run:
-./imap2dir.py dry imap.gmail.com user@gmail.com 'password' '[Gmail]/All Mail' ~/gmail_backup/
+./imap2dir.py dry imap.gmail.com user@gmail.com '[Gmail]/All Mail' ~/gmail_backup/
 
 # Dry sync:
-./imap2dir.py dry_sync imap.gmail.com user@gmail.com 'password' '[Gmail]/All Mail' ~/gmail_backup/
+./imap2dir.py dry_sync imap.gmail.com user@gmail.com '[Gmail]/All Mail' ~/gmail_backup/
 
 # Sync:
-./imap2dir.py sync imap.gmail.com user@gmail.com 'password' '[Gmail]/All Mail' ~/gmail_backup/
+./imap2dir.py sync imap.gmail.com user@gmail.com '[Gmail]/All Mail' ~/gmail_backup/
 ```
 
 For uploading maildir-style directories to IMAP instead, see [g-andrade/maildir2imap](https://github.com/g-andrade/maildir2imap).
