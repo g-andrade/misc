@@ -65,7 +65,7 @@ def parse_date_header(value):
                 return timestamp
     except Exception as e:
         log_error('couldn\'t parse %s as date: %s' % (repr(value), repr(e)))
-        return 0
+    return time.time()
 
 PRINTABLE_UNICODE_SUPER_CATEGORIES = set(['L', 'M', 'N', 'P', 'S', 'Z'])
 
