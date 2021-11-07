@@ -308,11 +308,14 @@ def fetch_imap_message_refids(
         sys.exit(-1)
 
 def sync(local_file_per_id, remote_refids, hostname,
-        username, password, folder_name, local_dirname, is_dry_sync):
+        username, password, folder_name, local_dirname,
+        purge_deleted, is_dry_sync
+        ):
     local_ids = frozenset(local_file_per_id.keys())
     only_remote_refids = filter(
             lambda (ref,mid): mid not in local_ids,
             remote_refids)
+
     log_notice('trying to download %d messages' % len(only_remote_refids))
     worker_pool = Pool(
             MAX_IMAP_WORKERS, imap_worker_init,
@@ -333,6 +336,14 @@ def sync(local_file_per_id, remote_refids, hostname,
         worker_pool.terminate()
         worker_pool.join()
         sys.exit(-1)
+
+    if purge_deleted:
+        to_delete = local_ids - frozenset([v for k,v in remote_refids])
+        log_notice('purging %d local message(s) not found remotely' % len(to_delete))
+        if not is_dry_sync:
+            for message_id in to_delete:
+                filename = local_file_per_id[message_id]
+                os.remove(filename)
 
 
 LOCAL_WORKER_CACHE = None
@@ -422,7 +433,7 @@ def fetch_local_message_ids(dirname):
         worker_pool.join()
         sys.exit(-1)
 
-def run(run_type, hostname, username, imap_folder_name, local_dirname):
+def run(run_type, hostname, username, imap_folder_name, local_dirname, purge_deleted):
     if run_type not in ['dry', 'dry_sync', 'sync']:
         raise Exception('unknown run type: %s' % run_type)
     password = getpass.getpass('Password for "%s@%s": ' % (username, hostname))
@@ -437,16 +448,16 @@ def run(run_type, hostname, username, imap_folder_name, local_dirname):
                 remote_refids)
         only_local = local_ids - remote_ids
         common = remote_ids & local_ids
-        log_notice('found %d remote-only, %d local-only, %d common IDs' % (
-            len(only_remote_refids), len(only_local), len(common)))
+        log_notice('found %d remote-only, %d local-only (delete? %s), %d common IDs' % (
+            len(only_remote_refids), len(only_local), purge_deleted, len(common)))
     elif run_type == 'dry_sync':
         sync(local_file_per_id, remote_refids,
                 hostname, username, password, imap_folder_name,
-                local_dirname, True)
+                local_dirname, purge_deleted, True)
     elif run_type == 'sync':
         sync(local_file_per_id, remote_refids,
                 hostname, username, password, imap_folder_name,
-                local_dirname, False)
+                local_dirname, purge_deleted, False)
 
 if __name__ == '__main__':
     # Dry run:
@@ -461,4 +472,8 @@ if __name__ == '__main__':
     #   ./imap2dir.py sync imap.gmail.com \
     #       user@gmail.com '[Gmail]/All Mail' ~/email_backup/
     #
-    run(*(sys.argv[1:6]))
+    run(
+        *(sys.argv[1:6]
+          + [False] #[(bool(sys.argv[6]) if len(sys.argv) >= 7 else False)]
+        )
+    )
