@@ -78,7 +78,7 @@ function ensure_new_version_in_changelog {
     fi
 
     if ! git diff-index --quiet HEAD CHANGELOG.md ; then
-        git commit CHANGELOG.md -m "Preparing CHANGELOG for release"
+        git commit CHANGELOG.md -m "Prepare CHANGELOG for $NEW_VERSION"
     fi
 }
 
