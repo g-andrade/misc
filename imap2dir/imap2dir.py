@@ -1,9 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import email
-import email.Header
-import email.Utils
+import email.header
+import email.utils
+from functools import reduce
 import getpass
 from imaplib import IMAP4_SSL
+import itertools
 from multiprocessing import Pool
 import operator
 import os
@@ -19,33 +21,21 @@ import unicodedata
 
 IMAP_FETCH_LIMIT = 10 ** 15
 MAX_IMAP_WORKERS = 5
-MAX_LOCAL_WORKERS = 5
+MAX_LOCAL_WORKERS = 17
 TEMP_PREFIX = u'._'
-
-def encode_unicode(value):
-    # from 'maildir2gmail.py'
-    # @ http://scott.yang.id.au/2009/01/migrate-emails-maildir-gmail.html
-    if isinstance(value, unicode):
-        for codec in ['iso-8859-1', 'utf8']:
-            try:
-                value = value.encode(codec)
-                break
-            except UnicodeError:
-                pass
-    return value
 
 def decode_header(value):
     # from 'maildir2gmail.py'
     # @ http://scott.yang.id.au/2009/01/migrate-emails-maildir-gmail.html
     result = []
-    for v, c in email.Header.decode_header(value):
+    for v, c in email.header.decode_header(value):
         try:
-            if c is None:
-                v = v.decode()
-            else:
-                v = v.decode(c)
+            if c is not None:
+                v = str(v, c)
+            elif isinstance(v, bytes):
+                v = v.decode('UTF-8')
         except (UnicodeError, LookupError):
-            v = v.decode('iso-8859-1')
+            v = str(v, 'iso-8859-1')
         result.append(v)
     return u' '.join(result)
 
@@ -106,7 +96,7 @@ def log(message):
     # from 'maildir2gmail.py'
     # @ http://scott.yang.id.au/2009/01/migrate-emails-maildir-gmail.html
     sys.stderr.write('[%s]: %s\n' % (
-        time.strftime('%H:%M:%S'), encode_unicode(message)))
+        time.strftime('%H:%M:%S'), message))
 
 IMAP_WORKER_OBJ = None
 IMAP_WORKER_FOLDER = None
@@ -156,42 +146,36 @@ def imap_worker_fetch_message_refids(message_refs):
     if len(message_refs) < 1:
         return []
     _typ, data = IMAP_WORKER_OBJ.fetch(
-            ','.join(message_refs),
+            b','.join(message_refs),
             '(BODY[HEADER.FIELDS (MESSAGE-ID)])')
     command_replies = [command_resp for _command, command_resp in data[::2]]
     message_ids = []
     for reply in command_replies:
-        if reply[:11].lower() == 'message-id:':
-            message_id_parts = filter(len, re.split(r'\s+', reply[11:]))
-            if (len(message_id_parts) % 2) == 1:
-                message_id = message_id_parts[0]
-                if len(message_id) > 0:
-                    log_debug('got message id %s' % repr(message_id))
-                    message_ids.append(message_id)
-                else:
-                    log_error('message-id cannot be empty')
-                    message_ids.append(None)
-            else:
-                log_error('unparsable message id: \%s' % message_id_parts)
-                message_ids.append(None)
-        else:
-            log_error('invalid message-id header: %s' % repr(reply))
-            message_ids.append(None)
+        if reply[:11].lower() == b'message-id:':
+            lines = str(reply[11:], 'UTF-8').splitlines()
+            stripped_of_repeated_headers = itertools.takewhile(
+                lambda line: not line.lower().startswith('message-id:'),
+                lines)
+            raw_message_id = '\n'.join(stripped_of_repeated_headers)
+            message_id = sane_message_id(raw_message_id)
+            message_ids.append(message_id)
+            if message_id is None:
+                log_error('bad message-id: "%s"', message_id)
+
     message_refids = zip(message_refs, message_ids)
-    valid_message_refids = filter(
-            lambda (_ref,mid): mid is not None, message_refids)
+    valid_message_refids = list(filter(
+            lambda refmid: refmid[1] is not None, message_refids))
     return valid_message_refids
 
-def imap_worker_download_message(
-        (message_ref, message_id), local_dirname, is_dry_sync):
+def imap_worker_download_message(message_ref_and_id, local_dirname, is_dry_sync):
+    message_ref, message_id = message_ref_and_id
     try:
         _typ, data = IMAP_WORKER_OBJ.fetch(message_ref, '(RFC822)')
-        message = email.message_from_string(data[0][1])
+        content = data[0][1]
+        message = email.message_from_bytes(content)
         subject = decode_header(message['subject'])
-        content = message.as_string()
         safe_subject = unicode_replace_nonprintable(subject)
-        log_info('downloaded \'%s\' (%d bytes)' % (
-            safe_subject.encode('utf8'), len(content)))
+        log_info('downloaded \'%s\' (%d bytes)' % (safe_subject, len(content)))
 
         if not is_dry_sync:
             temp_filepath = local_message_filepath(
@@ -219,7 +203,7 @@ def imap_worker_download_message(
 def local_message_filepath(local_dirname, mid, message, is_temp=False):
     if 'date' in message:
         timestamp = parse_date_header(message['date'])
-        filename_part1 = u'%s ' % long(timestamp)
+        filename_part1 = u'%s ' % int(timestamp)
     else:
         filename_part1 = u''
 
@@ -252,13 +236,13 @@ def slugify(value):
     # from Django? through:
     #   https://stackoverflow.com/questions/295135/\
     #       turn-a-string-into-a-valid-filename
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
-    value = unicode(re.sub('[-\s]+', '-', value))
+    value = unicodedata.normalize('NFKD', value)
+    value = re.sub('[^\w\s-]', '', value).strip().lower()
+    value = re.sub('[-\s]+', '-', value)
     return value
 
 def chunks(l, n):
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i+n]
 
 def fetch_imap_message_refids(
@@ -269,7 +253,7 @@ def fetch_imap_message_refids(
     imap_obj.select(folder_name, readonly=True)
     _typ, data = imap_obj.search(None, 'ALL')
     imap_obj.close()
-    all_message_refs = data[0].split()
+    all_message_refs = [datum for datum in data[0].split()]
     log_notice('found %d message refs; fetching up to %d message ids' % (
         len(all_message_refs), min(len(all_message_refs), limit)))
     message_refs = all_message_refs[:limit]
@@ -305,6 +289,7 @@ def fetch_imap_message_refids(
         log_error('rage quitting on fetch_imap_message_ids: %s' % repr(e))
         worker_pool.terminate()
         worker_pool.join()
+        traceback.print_exc()
         sys.exit(-1)
 
 def sync(local_file_per_id, remote_refids, hostname,
@@ -312,9 +297,9 @@ def sync(local_file_per_id, remote_refids, hostname,
         purge_deleted, is_dry_sync
         ):
     local_ids = frozenset(local_file_per_id.keys())
-    only_remote_refids = filter(
-            lambda (ref,mid): mid not in local_ids,
-            remote_refids)
+    only_remote_refids = list(filter(
+            lambda refmid: refmid[1] not in local_ids,
+            remote_refids))
 
     log_notice('trying to download %d messages' % len(only_remote_refids))
     worker_pool = Pool(
@@ -325,9 +310,9 @@ def sync(local_file_per_id, remote_refids, hostname,
                 [message_refid, local_dirname, is_dry_sync])
             for message_refid in only_remote_refids]
     try:
-        results = filter(
+        results = list(filter(
                 lambda v: v,
-                worker_pool.map(imap_worker, worker_pool_args))
+                worker_pool.map(imap_worker, worker_pool_args)))
         log_notice('downloaded %d messages (out of %d)' % (
             len(results), len(only_remote_refids)))
         worker_pool.terminate()
@@ -335,6 +320,7 @@ def sync(local_file_per_id, remote_refids, hostname,
         log_error('rage quitting on sync: %s' % repr(e))
         worker_pool.terminate()
         worker_pool.join()
+        traceback.print_exc()
         sys.exit(-1)
 
     if purge_deleted:
@@ -359,12 +345,12 @@ def parse_and_append_local_message_id(filepath):
 
     with open(filepath, 'rb') as msg_file:
         content = msg_file.read()
-        if content.endswith('\x00\x00\x00'):
+        if content.endswith(b'\x00\x00\x00'):
             log_error('cannot parse %s: corrupted' %
                     repr(os.path.basename(filepath)))
             return
-        message = email.message_from_string(content)
-        message_id = message['message-id']
+        message = email.message_from_bytes(content)
+        message_id = sane_message_id(message['message-id'])
         del message
         del content
         if message_id is not None:
@@ -375,6 +361,13 @@ def parse_and_append_local_message_id(filepath):
                     (repr(filepath), repr(message_id)))
         else:
             return (message_id, filepath)
+
+def sane_message_id(raw_value):
+    separate = list(filter(len, re.split(r'\s+', raw_value)))
+    rejoined = ' '.join(separate)
+    if len(rejoined) == 0:
+        return None
+    return rejoined
 
 #def imap_worker_die(signum, frame):
 def local_worker_die():
@@ -404,8 +397,8 @@ def fetch_local_message_ids(dirname):
     try:
         file_per_id_pairs = worker_pool.map(
                 parse_and_append_local_message_id, filepaths)
-        defined_file_per_id_pairs = filter(
-                lambda v: v is not None, file_per_id_pairs)
+        defined_file_per_id_pairs = list(filter(
+                lambda v: v is not None, file_per_id_pairs))
         new_cached_id_per_file = dict(
                 [(v, k) for k, v in defined_file_per_id_pairs])
         file_per_id = dict(defined_file_per_id_pairs)
@@ -431,6 +424,7 @@ def fetch_local_message_ids(dirname):
         log_error("rage quitting on fetch_local_message_ids: %s" % repr(e))
         worker_pool.terminate()
         worker_pool.join()
+        traceback.print_exc()
         sys.exit(-1)
 
 def run(run_type, hostname, username, imap_folder_name, local_dirname, purge_deleted):
@@ -443,9 +437,9 @@ def run(run_type, hostname, username, imap_folder_name, local_dirname, purge_del
     remote_ids = frozenset([mid for _ref,mid in remote_refids])
     if run_type == 'dry':
         local_ids = frozenset(local_file_per_id.keys())
-        only_remote_refids = filter(
-                lambda (ref,mid): mid not in local_ids,
-                remote_refids)
+        only_remote_refids = list(filter(
+                lambda refmid: refmid[1] not in local_ids,
+                remote_refids))
         only_local = local_ids - remote_ids
         common = remote_ids & local_ids
         log_notice('found %d remote-only, %d local-only (delete? %s), %d common IDs' % (
