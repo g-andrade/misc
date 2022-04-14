@@ -173,7 +173,7 @@ def imap_worker_download_message(message_ref_and_id, local_dirname, is_dry_sync)
         _typ, data = IMAP_WORKER_OBJ.fetch(message_ref, '(RFC822)')
         content = data[0][1]
         message = email.message_from_bytes(content)
-        subject = decode_header(message['subject'])
+        subject = decode_header(message.get('subject', ''))
         safe_subject = unicode_replace_nonprintable(subject)
         log_info('downloaded \'%s\' (%d bytes)' % (safe_subject, len(content)))
 
@@ -350,11 +350,11 @@ def parse_and_append_local_message_id(filepath):
                     repr(os.path.basename(filepath)))
             return
         message = email.message_from_bytes(content)
-        message_id = sane_message_id(message['message-id'])
+        message_id = message['message-id']
         del message
         del content
         if message_id is not None:
-            message_id = decode_header(message_id)
+            message_id = sane_message_id(decode_header(message_id))
 
         if (message_id is None) or (len(message_id) == 0):
             log_error('cannot sync %s: invalid message id (%s)' %
