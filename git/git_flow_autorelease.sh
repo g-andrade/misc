@@ -30,13 +30,19 @@ function ensure_master_is_up_to_date {
     git checkout develop
 }
 
-function ensure_develop_is_ahead_of_origin {
+function ensure_develop_is_not_behind_origin {
     DIFFERENCES=$(git rev-list --left-right --count origin/develop...develop)
     HOW_MUCH_IS_ORIGIN_AHEAD=$(echo "$DIFFERENCES" | awk '{print $1;}')
-    HOW_MUCH_WE_ARE_AHEAD=$(echo "$DIFFERENCES" | awk '{print $2;}')
+    # HOW_MUCH_WE_ARE_AHEAD=$(echo "$DIFFERENCES" | awk '{print $2;}')
 
     [ "$HOW_MUCH_IS_ORIGIN_AHEAD" == "0" ] || fail "origin/develop is ahead of us"
-    [ "$HOW_MUCH_WE_ARE_AHEAD" != "0" ] || fail "we are not ahead of origin/develop"
+    # [ "$HOW_MUCH_WE_ARE_AHEAD" != "0" ] || fail "we are not ahead of origin/develop"
+}
+
+function ensure_develop_differs_from_master {
+    NUMBER_OF_LINE_CHANGES=$(git diff develop..master | wc -l | awk '{print $1;}')
+
+    [ "$NUMBER_OF_LINE_CHANGES" != "0" ] || fail "develop contains no changes relative to master"
 }
 
 function determine_previous_version {
@@ -88,7 +94,8 @@ log "Running checks..."
 ensure_we_are_on_develop
 ensure_there_are_no_uncommitted_changes
 ensure_master_is_up_to_date
-ensure_develop_is_ahead_of_origin
+ensure_develop_is_not_behind_origin
+ensure_develop_differs_from_master
 ensure_changes_listed_in_changelog "$NEW_VERSION"
 log "Checks complete ✅"
 
