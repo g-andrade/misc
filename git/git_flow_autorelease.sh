@@ -46,7 +46,7 @@ function ensure_develop_differs_from_master {
 }
 
 function determine_previous_version {
-    git tag -l | sort --version-sort | tail -n1
+    git tag -l | grep "^[0-9]" | sort --version-sort | tail -n1
 }
 
 function changes_since_prev_version {
