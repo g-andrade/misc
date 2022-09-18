@@ -20,8 +20,8 @@ flac -v >/dev/null 2>&1 || fail "'flac' not installed"
 parallel --version >/dev/null 2>&1 || fail "'parallel' not installed"
 
 
-INPUT_DIR=$(realpath $1) || fail 'Missing first argument (input directory)'
-OUTPUT_DIR=$(realpath $2) || fail 'Missing second argument (output directory)'
+INPUT_DIR=$(realpath "$1") || fail 'Missing first argument (input directory)'
+OUTPUT_DIR=$(realpath "$2") || fail 'Missing second argument (output directory)'
 
 log "Input under \"$INPUT_DIR\", output under \"$OUTPUT_DIR\""
 [ "$INPUT_DIR" != "$OUTPUT_DIR" ] || fail 'Input dir cannot be the same as output dir'
