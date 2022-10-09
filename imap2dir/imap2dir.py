@@ -151,6 +151,7 @@ def imap_worker_fetch_message_refids(message_refs):
     command_replies = [command_resp for _command, command_resp in data[::2]]
     message_ids = []
     for reply in command_replies:
+        message_id = None
         if reply[:11].lower() == b'message-id:':
             lines = str(reply[11:], 'UTF-8').splitlines()
             stripped_of_repeated_headers = itertools.takewhile(
@@ -158,9 +159,9 @@ def imap_worker_fetch_message_refids(message_refs):
                 lines)
             raw_message_id = '\n'.join(stripped_of_repeated_headers)
             message_id = sane_message_id(raw_message_id)
-            message_ids.append(message_id)
             if message_id is None:
                 log_error('bad message-id: "%s"', message_id)
+        message_ids.append(message_id)
 
     message_refids = zip(message_refs, message_ids)
     valid_message_refids = list(filter(
