@@ -44,4 +44,4 @@ op item list \
 done \
 | gpg -c --no-symkey-cache --cipher "$GPG_CIPHER" >"$output_path"
 
-log "1password items saved to \"$output_path\""
+log "1password items saved in \"$output_path\""
