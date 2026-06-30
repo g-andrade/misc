@@ -238,8 +238,8 @@ def slugify(value):
     #   https://stackoverflow.com/questions/295135/\
     #       turn-a-string-into-a-valid-filename
     value = unicodedata.normalize('NFKD', value)
-    value = re.sub('[^\w\s-]', '', value).strip().lower()
-    value = re.sub('[-\s]+', '-', value)
+    value = re.sub('[^\\w\\s-]', '', value).strip().lower()
+    value = re.sub('[-\\s]+', '-', value)
     return value
 
 def chunks(l, n):
@@ -364,7 +364,7 @@ def parse_and_append_local_message_id(filepath):
             return (message_id, filepath)
 
 def sane_message_id(raw_value):
-    separate = list(filter(len, re.split(r'\s+', raw_value)))
+    separate = list(filter(len, re.split(r'\\s+', raw_value)))
     rejoined = ' '.join(separate)
     if len(rejoined) == 0:
         return None
