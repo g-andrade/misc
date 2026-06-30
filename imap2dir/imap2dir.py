@@ -238,8 +238,8 @@ def slugify(value):
     #   https://stackoverflow.com/questions/295135/\
     #       turn-a-string-into-a-valid-filename
     value = unicodedata.normalize('NFKD', value)
-    value = re.sub('[^\\w\\s-]', '', value).strip().lower()
-    value = re.sub('[-\\s]+', '-', value)
+    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
+    value = re.sub(r'[-\s]+', '-', value)
     return value
 
 def chunks(l, n):
@@ -364,7 +364,7 @@ def parse_and_append_local_message_id(filepath):
             return (message_id, filepath)
 
 def sane_message_id(raw_value):
-    separate = list(filter(len, re.split(r'\\s+', raw_value)))
+    separate = list(filter(len, re.split(r'\s+', raw_value)))
     rejoined = ' '.join(separate)
     if len(rejoined) == 0:
         return None
@@ -445,6 +445,9 @@ def run(run_type, hostname, username, imap_folder_name, local_dirname, purge_del
         common = remote_ids & local_ids
         log_notice('found %d remote-only, %d local-only (delete? %s), %d common IDs' % (
             len(only_remote_refids), len(only_local), purge_deleted, len(common)))
+
+        # log_notice('REMOTE IDS EXAMPLE: %s' % (sorted(list(remote_ids))[:10],))
+        # log_notice('LOCAL IDS EXAMPLE: %s' % (sorted(list(only_local))[:10],))
     elif run_type == 'dry_sync':
         sync(local_file_per_id, remote_refids,
                 hostname, username, password, imap_folder_name,
